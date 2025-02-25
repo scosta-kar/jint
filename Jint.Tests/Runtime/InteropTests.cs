@@ -3782,4 +3782,66 @@ try {
             return "boolean";
         }
     }
+
+    public enum TestDictionaryEnum
+    {
+        First,
+        Second,
+        Third
+    }
+
+    public class EnumDictionaryTestClass 
+    {
+        public Dictionary<TestDictionaryEnum, string> Values { get; private set; }
+
+        public void SetValues(Dictionary<TestDictionaryEnum, string> values)
+        {
+            Values = values;
+        }
+
+        public string GetValue(TestDictionaryEnum key)
+        {
+            return Values[key];
+        }
+    }
+
+    [Fact]
+    public void ShouldConvertJsObjectToDictionaryWithEnumKeys()
+    {
+        var engine = new Engine((e, options) => 
+        {
+            // options.AddObjectConverter(new EnumDictionaryTypeConverter(e));
+            options.SetTypeConverter(engine => new EnumDictionaryTypeConverter(engine));
+        });
+        engine.SetValue("TestDictionaryEnum", typeof(TestDictionaryEnum));
+        var target = new EnumDictionaryTestClass();
+        engine.SetValue("target", target);
+        engine.SetValue("log", new Action<object>(Console.WriteLine));
+
+        engine.Execute(@"
+            log('Creating dictionary...');
+            var dict = {};
+            var First = TestDictionaryEnum.First;
+            var Second = TestDictionaryEnum.Second;
+            var Third = TestDictionaryEnum.Third;
+            log('First = ' + First + ', Type: ' + typeof First);
+            log('Second = ' + Second + ', Type: ' + typeof Second);
+            log('Third = ' + Third + ', Type: ' + typeof Third);
+            dict[First] = 'first value';
+            dict[Second] = 'second value';
+            dict[Third] = 'third value';
+            log('Dictionary created with values:');
+            for (var key in dict) {
+                log('Key: ' + key + ', Type: ' + typeof key + ', Value: ' + dict[key]);
+            }
+            target.setValues(dict);
+        ");
+
+        // Verify the dictionary was properly populated on the C# side
+        Assert.NotNull(target.Values);
+        Assert.Equal(3, target.Values.Count);
+        Assert.Equal("first value", target.Values[TestDictionaryEnum.First]);
+        Assert.Equal("second value", target.Values[TestDictionaryEnum.Second]);
+        Assert.Equal("third value", target.Values[TestDictionaryEnum.Third]);
+    }
 }
