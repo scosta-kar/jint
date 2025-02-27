@@ -3805,6 +3805,16 @@ try {
         }
     }
 
+    public class TestDictionaryContainer
+    {
+        public TestDictionaryContainer(Dictionary<TestDictionaryEnum, string> values)
+        {
+            Values = values;
+        }
+
+        public Dictionary<TestDictionaryEnum, string> Values { get; private set; }
+    }
+
     [Fact]
     public void ShouldConvertJsObjectToDictionaryWithEnumKeys()
     {
@@ -3814,6 +3824,7 @@ try {
             options.SetTypeConverter(engine => new EnumDictionaryTypeConverter(engine));
         });
         engine.SetValue("TestDictionaryEnum", typeof(TestDictionaryEnum));
+        engine.SetValue("TestDictionaryContainer", typeof(TestDictionaryContainer));
         var target = new EnumDictionaryTestClass();
         engine.SetValue("target", target);
         engine.SetValue("log", new Action<object>(Console.WriteLine));
@@ -3844,4 +3855,79 @@ try {
         Assert.Equal("second value", target.Values[TestDictionaryEnum.Second]);
         Assert.Equal("third value", target.Values[TestDictionaryEnum.Third]);
     }
+    
+    [Fact]
+    public void ShouldConvertJsObjectToDictionaryWithEnumKeysinContainerConstructor()
+    {
+        var engine = new Engine((e, options) => 
+        {
+            // options.AddObjectConverter(new EnumDictionaryTypeConverter(e));
+            options.SetTypeConverter(engine => new EnumDictionaryTypeConverter(engine));
+        });
+        engine.SetValue("TestDictionaryEnum", typeof(TestDictionaryEnum));
+        engine.SetValue("TestDictionaryContainer", typeof(TestDictionaryContainer));
+        engine.SetValue("log", new Action<object>(Console.WriteLine))
+            .SetValue("assert", new Action<bool>(Assert.True));
+
+        engine.Execute(@"
+            log('Creating dictionary...');
+            var dict = {};
+            var First = TestDictionaryEnum.First;
+            var Second = TestDictionaryEnum.Second;
+            var Third = TestDictionaryEnum.Third;
+            log('First = ' + First + ', Type: ' + typeof First);
+            log('Second = ' + Second + ', Type: ' + typeof Second);
+            log('Third = ' + Third + ', Type: ' + typeof Third);
+            dict[First] = 'first value';
+            dict[Second] = 'second value';
+            dict[Third] = 'third value';
+            
+            log('Dictionary created with values:');
+            for (var key in dict) {
+                log('Key: ' + key + ', Type: ' + typeof key + ', Value: ' + dict[key]);
+            }
+            var container=new TestDictionaryContainer(dict);
+            var innerDict = container.Values;
+log('gggg' + innerDict[TestDictionaryEnum.First]);
+            assert(innerDict[TestDictionaryEnum.First]!==null);
+
+        ");
+    }
+    
+    [Fact]
+    public void ShouldPassThroughDictionaryWithEnumKeysinContainerConstructor()
+    {
+        var engine = new Engine((e, options) => 
+        {
+            // options.AddObjectConverter(new EnumDictionaryTypeConverter(e));
+            options.AllowClr();
+            options.SetTypeConverter(engine => new EnumDictionaryTypeConverter(engine));
+        });
+        engine.SetValue("TestDictionaryEnum", typeof(TestDictionaryEnum));
+        engine.SetValue("TestDictionaryContainer", typeof(TestDictionaryContainer));
+        engine.SetValue("log", new Action<object>(Console.WriteLine))
+            .SetValue("assert", new Action<bool>(Assert.True));
+
+        engine.Execute(@"
+            log('Creating dictionary...');
+var TheType=System.Collections.Generic.Dictionary(
+      TestDictionaryEnum,
+      System.String
+    );
+            var dict = new TheType();
+            dict[TestDictionaryEnum.First] = 'first value';
+            dict[TestDictionaryEnum.Second] = 'second value';
+            dict[TestDictionaryEnum.Third] = 'third value';
+            
+            var container=new TestDictionaryContainer(dict);
+            var innerDict = container.Values;
+log('gggg' + innerDict[TestDictionaryEnum.First]);
+            assert(innerDict[TestDictionaryEnum.First]!==null);
+
+        ");
+    }
+    
+    
+    
+    
 }
